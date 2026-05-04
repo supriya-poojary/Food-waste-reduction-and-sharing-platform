@@ -28,6 +28,7 @@ export default async function handler(req, res) {
       email,
       password: hashedPassword,
       avatar: name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
+      role: rest.role || 'requester', // Default to requester
       ...rest,
     });
 

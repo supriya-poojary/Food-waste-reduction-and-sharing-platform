@@ -12,7 +12,7 @@ import { Modal, ConfirmModal } from '../components/ui/Modal';
 import { Textarea } from '../components/ui/Input';
 import { SkeletonText } from '../components/ui/Skeleton';
 import UrgencyBadge, { UrgencyRing } from '../components/ui/UrgencyBadge';
-import ClaimModal from '../components/food/ClaimModal';
+import RequestModal from '../components/food/RequestModal';
 import toast from 'react-hot-toast';
 
 function getExpiryLabel(expiryDate) {
@@ -33,7 +33,7 @@ export default function FoodDetailPage() {
   const [food, setFood] = useState(null);
   const [loading, setLoading] = useState(true);
   const [imgZoomed, setImgZoomed] = useState(false);
-  const [claimModalOpen, setClaimModalOpen] = useState(false);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [requested, setRequested] = useState(false);
   const { loading: submitting, execute } = useAsyncAction();
   const { loading: sharing, execute: executeShare } = useAsyncAction();
@@ -46,19 +46,19 @@ export default function FoodDetailPage() {
 
   const handleRequestClick = () => {
     if (!user) {
-      toast.error('Please log in to claim food');
+      toast.error('Please log in to request food');
       navigate('/auth');
       return;
     }
     if (food.donorId === user.id) {
-      toast.error("You can't claim your own listing");
+      toast.error("You can't request your own listing");
       return;
     }
-    setClaimModalOpen(true);
+    setRequestModalOpen(true);
   };
 
-  const handleFoodClaimed = () => {
-    setFood(prev => ({ ...prev, status: 'claimed' }));
+  const handleFoodRequested = () => {
+    setRequested(true);
   };
 
   const handleShare = async () => {
@@ -95,7 +95,7 @@ export default function FoodDetailPage() {
 
   const expiry = getExpiryLabel(food.expiryDate);
   const isOwner = user?.id === food.donorId;
-  const canRequest = !isOwner && food.status === 'available' && !requested;
+  const canRequest = !isOwner && user?.role === 'requester' && food.status === 'available' && !requested;
 
   return (
     <div className="min-h-screen pt-24 pb-16 animate-fade-in">
@@ -278,7 +278,7 @@ export default function FoodDetailPage() {
                   icon={<Zap size={18} />}
                   size="lg"
                 >
-                  Claim This Food
+                  Request This Food
                 </Button>
               ) : isOwner ? (
                 <div className="flex-1 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400 text-sm text-center">
@@ -297,12 +297,12 @@ export default function FoodDetailPage() {
         </div>
       </div>
 
-      {/* Claim Modal */}
-      <ClaimModal 
+      {/* Request Modal */}
+      <RequestModal 
         food={{ ...food, urgency: expiry.level, expiryStatus: expiry.label }} 
-        isOpen={claimModalOpen} 
-        onClose={() => setClaimModalOpen(false)} 
-        onClaimed={handleFoodClaimed} 
+        isOpen={requestModalOpen} 
+        onClose={() => setRequestModalOpen(false)} 
+        onRequestSent={handleFoodRequested} 
       />
     </div>
   );

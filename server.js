@@ -18,7 +18,8 @@ export const io = new Server(httpServer, {
 
 const PORT = process.env.PORT || 3001;
 app.use(cors({ origin: 'http://localhost:5173' }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // ── Inject io into request so handlers can emit events ─────────────────────
 app.use((req, _res, next) => {
@@ -94,6 +95,10 @@ app.put('/api/claims/:id',     (req, res) => {
 // ── Requests routes ────────────────────────────────────────────────────────
 app.get('/api/requests',       (req, res) => handle(req, res, 'requests/index.js'));
 app.post('/api/requests',      (req, res) => handle(req, res, 'requests/index.js'));
+app.put('/api/requests/:id',     (req, res) => {
+  req.query.id = req.params.id;
+  handle(req, res, 'requests/[id].js');
+});
 
 // ── Users routes ───────────────────────────────────────────────────────────
 app.get('/api/users/:id',      (req, res) => {

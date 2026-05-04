@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   User, Heart, HandHeart, Edit3, Save, Camera,
-  MapPin, Phone, Mail, Star, Award, Clock, CheckCircle
+  MapPin, Phone, Mail, Star, Award, Clock, CheckCircle, XCircle, Send, Bell
 } from 'lucide-react';
 import { api, storage } from '../data/storage';
 import { useAuth } from '../context/AuthContext';
@@ -13,10 +13,9 @@ import { SkeletonProfile, SkeletonGrid } from '../components/ui/Skeleton';
 import FoodCard from '../components/food/FoodCard';
 import toast from 'react-hot-toast';
 
-const TABS = [
+// Define base tabs
+const BASE_TABS = [
   { id: 'profile', label: 'Profile', icon: User },
-  { id: 'donations', label: 'My Donations', icon: Heart },
-  { id: 'claims', label: 'My Claims', icon: HandHeart },
   { id: 'impact', label: 'Impact', icon: Star },
 ];
 
@@ -33,8 +32,9 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'profile');
   const [editing, setEditing] = useState(false);
   const [myDonations, setMyDonations] = useState([]);
-  const [myClaims, setMyClaims] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
+  const [approvalModal, setApprovalModal] = useState({ open: false, requestId: null, pickupDetails: '' });
   const { loading: saving, execute } = useAsyncAction();
 
   const [form, setForm] = useState({
@@ -47,31 +47,95 @@ export default function ProfilePage() {
 
   const { errors, touched, validate, touch, touchAll } = useFormValidation(PROFILE_RULES);
 
+  const tabs = [
+    { id: 'profile', label: 'Profile', icon: User },
+    ...(user?.role === 'donor' ? [{ id: 'donations', label: 'My Donations', icon: Heart }] : []),
+    ...(user?.role === 'donor' ? [{ id: 'incoming', label: 'Incoming Requests', icon: Bell }] : []),
+    ...(user?.role === 'requester' ? [{ id: 'requests', label: 'My Requests', icon: HandHeart }] : []),
+    { id: 'impact', label: 'Impact', icon: Star },
+  ];
+
   useEffect(() => {
     if (!user) { navigate('/auth'); return; }
-    if (activeTab === 'donations' || activeTab === 'claims') loadUserData();
+    if (activeTab === 'donations' || activeTab === 'requests' || activeTab === 'incoming') loadUserData();
   }, [user, activeTab]);
 
   async function loadUserData() {
     setDataLoading(true);
-    const [donations, claims] = await Promise.all([
-      api.getFoodItems().then(items => items.filter(i => i.donorId === user.id)),
-      api.getUserClaims(),
-    ]);
-    setMyDonations(donations);
-    setMyClaims(claims);
+    try {
+      if (activeTab === 'donations') {
+        const donations = await api.getFoodItems({ donorId: user.id });
+        setMyDonations(donations);
+      } else if (activeTab === 'requests') {
+        const myRequests = await api.getUserRequests();
+        setRequests(myRequests);
+      } else if (activeTab === 'incoming') {
+        const incoming = await fetcher('/api/requests?type=incoming');
+        setRequests(incoming);
+      }
+    } catch (err) {
+      console.error(err);
+    }
     setDataLoading(false);
   }
 
-  const handleCompleteClaim = async (claimId) => {
+  const handleApproveRequest = async () => {
     try {
-      await api.completeClaim(claimId);
-      toast.success('Food marked as picked up! Thank you.');
+      await fetcher(`/api/requests/${approvalModal.requestId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'approved', pickupDetails: approvalModal.pickupDetails })
+      });
+      toast.success('Request approved!');
+      setApprovalModal({ open: false, requestId: null, pickupDetails: '' });
       loadUserData();
     } catch (error) {
-      toast.error(error.message || 'Failed to complete claim');
+      toast.error(error.message || 'Failed to approve');
     }
   };
+
+  const handleRejectRequest = async (id) => {
+    try {
+      await fetcher(`/api/requests/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'rejected' })
+      });
+      toast.success('Request rejected');
+      loadUserData();
+    } catch (error) {
+      toast.error(error.message || 'Failed to reject');
+    }
+  };
+
+  const handleMarkCollected = async (id) => {
+    try {
+      await fetcher(`/api/requests/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'completed' })
+      });
+      toast.success('Food marked as collected! 🎉');
+      // Success celebration!
+      loadUserData();
+      navigate('/payment'); // Redirect to payment for support as requested
+    } catch (error) {
+      toast.error(error.message || 'Failed to update');
+    }
+  };
+
+  // Helper fetcher since we need some custom endpoints
+  async function fetcher(url, options = {}) {
+    const token = storage.getToken();
+    const res = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message);
+    return data;
+  }
 
   const update = (f, v) => {
     setForm(prev => ({ ...prev, [f]: v }));
@@ -97,8 +161,12 @@ export default function ProfilePage() {
   if (!user) return null;
 
   const impactStats = [
-    { label: 'Meals Donated', value: user.donationsCount || 0, icon: Heart, color: 'from-green-400 to-emerald-500' },
-    { label: 'Requests Made', value: user.requestsCount || 0, icon: HandHeart, color: 'from-blue-400 to-cyan-500' },
+    { 
+      label: user.role === 'donor' ? 'Meals Donated' : 'Meals Requested', 
+      value: user.role === 'donor' ? (user.donationsCount || 0) : (user.requestsCount || 0), 
+      icon: user.role === 'donor' ? Heart : HandHeart, 
+      color: user.role === 'donor' ? 'from-green-400 to-emerald-500' : 'from-blue-400 to-cyan-500' 
+    },
     { label: 'Rating', value: `${(user.rating || 5).toFixed(1)}★`, icon: Star, color: 'from-yellow-400 to-orange-500' },
     { label: 'CO₂ Saved', value: `${((user.donationsCount || 0) * 0.3).toFixed(1)}kg`, icon: Award, color: 'from-purple-400 to-pink-500' },
   ];
@@ -170,7 +238,7 @@ export default function ProfilePage() {
 
         {/* Tabs */}
         <div className="flex gap-1 bg-white/5 rounded-2xl p-1 mb-6 overflow-x-auto animate-fade-up" style={{ animationDelay: '150ms' }}>
-          {TABS.map(tab => (
+          {tabs.map(tab => (
             <button
               key={tab.id}
               id={`profile-tab-${tab.id}`}
@@ -309,11 +377,11 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* ── Claims Tab ── */}
-          {activeTab === 'claims' && (
+          {/* ── Requests Tab (Requester View) ── */}
+          {activeTab === 'requests' && (
             <div>
               <h2 className="font-display font-bold text-xl text-white mb-6">
-                My Claims ({myClaims.length})
+                My Requests ({requests.length})
               </h2>
               {dataLoading ? (
                 <div className="space-y-4">
@@ -321,49 +389,103 @@ export default function ProfilePage() {
                     <div key={i} className="skeleton h-24 rounded-xl" />
                   ))}
                 </div>
-              ) : myClaims.length === 0 ? (
+              ) : requests.length === 0 ? (
                 <div className="text-center py-20 glass-card">
                   <div className="text-5xl mb-4">🙏</div>
-                  <h3 className="font-bold text-xl text-white mb-2">No active claims</h3>
-                  <p className="text-white/50 mb-6">Need food? Check out our Smart Matches to claim nearby items.</p>
-                  <div className="flex gap-3 justify-center">
-                    <Button id="profile-matches-btn" variant="primary" onClick={() => navigate('/matches')}>View Smart Matches</Button>
-                  </div>
+                  <h3 className="font-bold text-xl text-white mb-2">No active requests</h3>
+                  <p className="text-white/50 mb-6">Need food? Check out our browse page to find items near you.</p>
+                  <Button variant="primary" onClick={() => navigate('/browse')}>Browse Food</Button>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {myClaims.map((claim, i) => (
-                    <div key={claim.id} className="glass-card p-4 flex flex-col sm:flex-row gap-4 animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
-                      <img src={claim.foodId?.image} alt="Food" className="w-full sm:w-24 h-24 object-cover rounded-xl border border-white/10" />
+                  {requests.map((req, i) => (
+                    <div key={req.id} className="glass-card p-4 flex flex-col sm:flex-row gap-4 animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
+                      <img src={req.foodId?.image || 'https://images.unsplash.com/photo-1490818387583-1baba5e638af?w=200&q=80'} alt="Food" className="w-full sm:w-24 h-24 object-cover rounded-xl border border-white/10" />
                       <div className="flex-1 flex flex-col justify-between">
                         <div>
                           <div className="flex justify-between items-start mb-1">
-                            <p className="text-white font-semibold line-clamp-1">{claim.foodId?.title || 'Unknown Item'}</p>
+                            <p className="text-white font-semibold line-clamp-1">{req.foodId?.title || 'General Request'}</p>
                             <span className={`badge flex-shrink-0 ${
-                              claim.status === 'active' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
-                              claim.status === 'completed' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 
-                              'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                              req.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
+                              req.status === 'approved' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
+                              req.status === 'completed' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 
+                              'bg-red-500/20 text-red-400 border-red-500/30'
                             }`}>
-                              {claim.status.toUpperCase()}
+                              {req.status.toUpperCase()}
                             </span>
                           </div>
-                          <p className="text-white/50 text-xs mb-2">📍 {claim.foodId?.location}</p>
-                          {claim.status === 'active' && (
-                            <p className="text-orange-400 text-xs font-medium bg-orange-500/10 px-2 py-1 rounded-md inline-block">
-                              Expires: {new Date(claim.expiresAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                            </p>
+                          {req.status === 'approved' && (
+                            <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl mb-2">
+                              <p className="text-blue-400 text-xs font-bold mb-1 uppercase tracking-wider">Pickup Instructions:</p>
+                              <p className="text-white text-sm">{req.pickupDetails || 'Collect from the listed location.'}</p>
+                            </div>
                           )}
                         </div>
                         <div className="flex items-center justify-between mt-3">
                           <p className="text-white/40 text-xs">
-                            Claimed on {new Date(claim.claimedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                            Requested on {new Date(req.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                           </p>
-                          {claim.status === 'active' && (
-                            <Button size="sm" variant="primary" onClick={() => handleCompleteClaim(claim.id || claim._id)}>
-                              Mark as Picked Up
+                          {req.status === 'approved' && (
+                            <Button size="sm" variant="primary" onClick={() => handleMarkCollected(req.id)}>
+                              Mark as Collected
                             </Button>
                           )}
                         </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Incoming Requests Tab (Donor View) ── */}
+          {activeTab === 'incoming' && (
+            <div>
+              <h2 className="font-display font-bold text-xl text-white mb-6">
+                Requests Received ({requests.length})
+              </h2>
+              {dataLoading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="skeleton h-24 rounded-xl" />
+                  ))}
+                </div>
+              ) : requests.length === 0 ? (
+                <div className="text-center py-20 glass-card">
+                  <div className="text-5xl mb-4">📨</div>
+                  <h3 className="font-bold text-xl text-white mb-2">No requests yet</h3>
+                  <p className="text-white/50">Your donated items will appear here once people request them.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {requests.map((req, i) => (
+                    <div key={req.id} className="glass-card p-5 animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`badge ${
+                              req.status === 'pending' ? 'badge-yellow' : 
+                              req.status === 'approved' ? 'badge-green' : 'badge-red'
+                            }`}>
+                              {req.status}
+                            </span>
+                            <span className="text-white/40 text-xs">• Requested by {req.requesterName}</span>
+                          </div>
+                          <h3 className="text-white font-bold text-lg mb-1">{req.foodId?.title}</h3>
+                          <p className="text-white/60 text-sm italic">"{req.message || 'No message provided'}"</p>
+                        </div>
+                        
+                        {req.status === 'pending' && (
+                          <div className="flex sm:flex-col gap-2">
+                            <Button size="sm" variant="primary" onClick={() => setApprovalModal({ open: true, requestId: req.id, pickupDetails: '' })}>
+                              Approve
+                            </Button>
+                            <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10" onClick={() => handleRejectRequest(req.id)}>
+                              Reject
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -422,6 +544,33 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      {/* Approval Modal */}
+      <Modal 
+        isOpen={approvalModal.open} 
+        onClose={() => setApprovalModal({ ...approvalModal, open: false })}
+        title="Approve Request"
+      >
+        <div className="space-y-4">
+          <p className="text-white/60 text-sm">
+            Provide pickup instructions for the requester (e.g., exact address, gate code, or preferred time).
+          </p>
+          <Textarea 
+            placeholder="e.g., Please collect from Gate 2. I'm available between 6-8 PM today."
+            value={approvalModal.pickupDetails}
+            onChange={(e) => setApprovalModal({ ...approvalModal, pickupDetails: e.target.value })}
+            rows={4}
+          />
+          <div className="flex gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setApprovalModal({ ...approvalModal, open: false })} fullWidth>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleApproveRequest} fullWidth icon={<Send size={16} />}>
+              Confirm Approval
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

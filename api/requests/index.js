@@ -1,6 +1,7 @@
 import dbConnect from '../../lib/db.js';
 import Request from '../../lib/models/Request.js';
 import FoodItem from '../../lib/models/FoodItem.js';
+import User from '../../lib/models/User.js';
 import { getAuthUser } from '../../lib/auth.js';
 
 export default async function handler(req, res) {
@@ -13,7 +14,24 @@ export default async function handler(req, res) {
         return res.status(401).json({ message: 'Unauthorized' });
       }
 
-      const requests = await Request.find({ requesterId: auth.id }).sort({ createdAt: -1 });
+      const { type } = req.query;
+
+      if (type === 'incoming') {
+        // Find food items owned by this donor
+        const myItems = await FoodItem.find({ donorId: auth.id }).select('_id');
+        const itemIds = myItems.map(item => item._id);
+        
+        // Find requests for these items
+        const requests = await Request.find({ foodId: { $in: itemIds } })
+          .populate('foodId')
+          .sort({ createdAt: -1 });
+        return res.status(200).json(requests);
+      }
+
+      // Default: outgoing requests
+      const requests = await Request.find({ requesterId: auth.id })
+        .populate('foodId')
+        .sort({ createdAt: -1 });
       res.status(200).json(requests);
     } catch (error) {
       console.error(error);
@@ -30,14 +48,19 @@ export default async function handler(req, res) {
 
       const newRequest = await Request.create({
         ...rest,
-        foodId,
+        ...(foodId && { foodId }),
         requesterId: auth.id,
         status: 'pending',
         createdAt: new Date(),
       });
 
-      // Update food status
-      await FoodItem.findByIdAndUpdate(foodId, { status: 'requested' });
+      // Update food status only if it's a specific request
+      if (foodId) {
+        await FoodItem.findByIdAndUpdate(foodId, { status: 'requested' });
+      }
+
+      // Update user's requestsCount
+      await User.findByIdAndUpdate(auth.id, { $inc: { requestsCount: 1 } });
 
       res.status(201).json(newRequest);
     } catch (error) {

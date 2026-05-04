@@ -33,7 +33,7 @@ export default function AuthPage() {
 
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [registerForm, setRegisterForm] = useState({
-    name: '', email: '', password: '', confirmPassword: '', phone: '', location: '',
+    name: '', email: '', password: '', confirmPassword: '', phone: '', location: '', role: 'requester'
   });
 
   const loginVal = useFormValidation(LOGIN_RULES);
@@ -275,6 +275,34 @@ export default function AuthPage() {
                 }
                 required
               />
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white/70 block">I want to...</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => updateRegister('role', 'donor')}
+                    className={`p-3 rounded-xl border text-sm font-semibold transition-all ${
+                      registerForm.role === 'donor' 
+                        ? 'border-green-500 bg-green-500/20 text-green-400' 
+                        : 'border-white/10 bg-white/5 text-white/50 hover:bg-white/10'
+                    }`}
+                  >
+                    Donate Food 🍱
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateRegister('role', 'requester')}
+                    className={`p-3 rounded-xl border text-sm font-semibold transition-all ${
+                      registerForm.role === 'requester' 
+                        ? 'border-blue-500 bg-blue-500/20 text-blue-400' 
+                        : 'border-white/10 bg-white/5 text-white/50 hover:bg-white/10'
+                    }`}
+                  >
+                    Request Food 🙏
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <Input
                   id="auth-reg-phone"

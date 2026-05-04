@@ -72,6 +72,7 @@ export const api = {
     if (filters.category) params.append('category', filters.category);
     if (filters.search) params.append('search', filters.search);
     if (filters.status) params.append('status', filters.status);
+    if (filters.donorId) params.append('donorId', filters.donorId);
     if (filters.isVeg !== undefined) params.append('isVeg', filters.isVeg);
     return fetcher(`/api/food?${params.toString()}`);
   },

@@ -1,5 +1,6 @@
 import dbConnect from '../../lib/db.js';
 import FoodItem from '../../lib/models/FoodItem.js';
+import User from '../../lib/models/User.js';
 import { getAuthUser } from '../../lib/auth.js';
 
 export default async function handler(req, res) {
@@ -7,11 +8,12 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      const { category, search, status, isVeg } = req.query;
+      const { category, search, status, isVeg, donorId } = req.query;
       let query = {};
 
       if (category && category !== 'all') query.category = category;
       if (status) query.status = status;
+      if (donorId) query.donorId = donorId;
       if (isVeg !== undefined) query.isVeg = isVeg === 'true';
       if (search) {
         const regex = new RegExp(search, 'i');
@@ -42,6 +44,9 @@ export default async function handler(req, res) {
         status: 'available',
         postedAt: new Date(),
       });
+
+      // Update user's donationsCount
+      await User.findByIdAndUpdate(auth.id, { $inc: { donationsCount: 1 } });
 
       res.status(201).json(newItem);
     } catch (error) {

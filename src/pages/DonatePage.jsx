@@ -183,6 +183,21 @@ export default function DonatePage() {
     );
   }
 
+  if (user.role === 'requester') {
+    return (
+      <div className="min-h-screen pt-24 flex items-center justify-center">
+        <div className="glass-card p-10 text-center max-w-md">
+          <div className="text-5xl mb-4">🙏</div>
+          <h2 className="font-display font-bold text-2xl text-white mb-3">Donor Access Only</h2>
+          <p className="text-white/60 mb-6">Your account is set to "Requester". Only Donors can list food items.</p>
+          <Button variant="primary" onClick={() => navigate('/browse')} fullWidth>
+            Go to Browse Food
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (submitted) {
     return (
       <div className="min-h-screen pt-24 flex items-center justify-center px-4">

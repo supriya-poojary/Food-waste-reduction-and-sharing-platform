@@ -7,13 +7,20 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const NAV_LINKS = [
-  { to: '/', label: 'Home', icon: Home },
-  { to: '/browse', label: 'Browse', icon: Search },
-  { to: '/matches', label: 'Smart Matches', icon: MapPin },
-  { to: '/donate', label: 'Donate Food', icon: Heart },
-  { to: '/request', label: 'Request Food', icon: HandHeart },
-];
+const getNavLinks = (role) => {
+  const links = [
+    { to: '/', label: 'Home', icon: Home },
+  ];
+  if (!role || role === 'requester') {
+    links.push({ to: '/browse', label: 'Browse', icon: Search });
+    links.push({ to: '/matches', label: 'Smart Matches', icon: MapPin });
+    links.push({ to: '/request', label: 'Request Food', icon: HandHeart });
+  }
+  if (!role || role === 'donor') {
+    links.push({ to: '/donate', label: 'Donate Food', icon: Heart });
+  }
+  return links;
+};
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -21,6 +28,8 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  
+  const navLinks = getNavLinks(user?.role);
 
   const handleLogout = () => {
     logout();
@@ -53,7 +62,7 @@ export default function Navbar() {
 
         {/* Desktop Nav */}
         <div className="hidden lg:flex items-center gap-1">
-          {NAV_LINKS.map(link => (
+          {navLinks.map(link => (
             <NavItem key={link.to} {...link} />
           ))}
         </div>
@@ -119,8 +128,8 @@ export default function Navbar() {
                     </div>
                     {[
                       { icon: User, label: 'My Profile', to: '/profile' },
-                      { icon: Heart, label: 'My Donations', to: '/profile?tab=donations' },
-                      { icon: HandHeart, label: 'My Requests', to: '/profile?tab=requests' },
+                      ...(user?.role === 'donor' ? [{ icon: Heart, label: 'My Donations', to: '/profile?tab=donations' }] : []),
+                      ...(user?.role === 'requester' ? [{ icon: HandHeart, label: 'My Requests', to: '/profile?tab=requests' }] : []),
                     ].map(item => (
                       <Link
                         key={item.to}
@@ -179,7 +188,7 @@ export default function Navbar() {
       {menuOpen && (
         <div className="lg:hidden bg-slate-900/95 backdrop-blur-xl border-t border-white/10 animate-fade-in">
           <div className="max-w-7xl mx-auto px-4 py-4 space-y-1">
-            {NAV_LINKS.map(link => (
+            {navLinks.map(link => (
               <Link
                 key={link.to}
                 to={link.to}
