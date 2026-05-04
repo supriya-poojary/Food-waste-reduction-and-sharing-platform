@@ -165,16 +165,28 @@ export default function FoodDetailPage() {
               <h1 className="font-display font-bold text-2xl sm:text-3xl text-white leading-tight">
                 {food.title}
               </h1>
-              <Button
-                id="detail-share-btn"
-                variant="ghost"
-                size="sm"
-                onClick={handleShare}
-                loading={sharing}
-                icon={<Share2 size={16} />}
-              >
-                Share
-              </Button>
+              <div className="flex gap-2">
+                {food.lat && food.lng && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${food.lat},${food.lng}`, '_blank')}
+                    icon={<MapPin size={16} />}
+                  >
+                    Directions
+                  </Button>
+                )}
+                <Button
+                  id="detail-share-btn"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleShare}
+                  loading={sharing}
+                  icon={<Share2 size={16} />}
+                >
+                  Share
+                </Button>
+              </div>
             </div>
 
             <p className="text-white/60 leading-relaxed mb-6">{food.description}</p>

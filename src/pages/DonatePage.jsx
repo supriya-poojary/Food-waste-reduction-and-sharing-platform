@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, X, CheckCircle, Leaf, Camera } from 'lucide-react';
+import { Upload, X, CheckCircle, Leaf, Camera, MapPin } from 'lucide-react';
 import { api } from '../data/storage';
 import { useAuth } from '../context/AuthContext';
 import { useAsyncAction, useFormValidation, validators } from '../hooks/useHelpers';
@@ -38,6 +38,7 @@ export default function DonatePage() {
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef(null);
   const { loading, execute } = useAsyncAction();
+  const [detectingLoc, setDetectingLoc] = useState(false);
 
   const [form, setForm] = useState({
     title: '',
@@ -51,6 +52,8 @@ export default function DonatePage() {
     isVeg: true,
     tags: '',
     image: 'https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?w=400&q=80',
+    lat: null,
+    lng: null,
   });
 
   const { errors, touched, validate, touch, touchAll, setErrors } = useFormValidation(VALIDATION_RULES);
@@ -74,6 +77,36 @@ export default function DonatePage() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+    setDetectingLoc(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
+          const data = await res.json();
+          if (data && data.display_name) {
+            update('location', data.display_name);
+            setForm(prev => ({ ...prev, lat: latitude, lng: longitude }));
+            toast.success('Location detected!');
+          }
+        } catch (error) {
+          toast.error('Failed to get address. Please type it manually.');
+          setForm(prev => ({ ...prev, lat: latitude, lng: longitude }));
+        }
+        setDetectingLoc(false);
+      },
+      (error) => {
+        toast.error('Unable to retrieve your location. Please type it manually.');
+        setDetectingLoc(false);
+      }
+    );
   };
 
   const step1Valid = () => {
@@ -162,7 +195,7 @@ export default function DonatePage() {
           <p className="text-white/60 mb-8">Your listing is now live. People in your area will be notified. Thank you for making a difference!</p>
           <div className="flex flex-col gap-3">
             <Button variant="primary" onClick={() => navigate('/browse')} fullWidth>View All Listings</Button>
-            <Button variant="secondary" onClick={() => { setSubmitted(false); setStep(0); setForm({ title:'',description:'',category:'',quantity:'',servings:'4',expiryDate:'',location:'',pickupInstructions:'',isVeg:true,tags:'',image:'https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?w=400&q=80' }); setImagePreview(null); }} fullWidth>
+            <Button variant="secondary" onClick={() => { setSubmitted(false); setStep(0); setForm({ title:'',description:'',category:'',quantity:'',servings:'4',expiryDate:'',location:'',pickupInstructions:'',isVeg:true,tags:'',image:'https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?w=400&q=80',lat:null,lng:null }); setImagePreview(null); }} fullWidth>
               Donate More Food
             </Button>
           </div>
@@ -334,17 +367,32 @@ export default function DonatePage() {
           {step === 1 && (
             <div className="space-y-5">
               <h2 className="font-display font-bold text-xl text-white mb-2">Pickup Details</h2>
-              <Input
-                id="donate-location"
-                label="Pickup Location"
-                placeholder="e.g., 15 MG Road, Koramangala, Bangalore"
-                value={form.location}
-                onChange={e => update('location', e.target.value)}
-                onBlur={() => { touch('location'); validate(form); }}
-                error={touched.location && errors.location}
-                required
-                helperText="Be specific enough for people to find you"
-              />
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <Input
+                    id="donate-location"
+                    label="Pickup Location"
+                    placeholder="e.g., 15 MG Road, Koramangala, Bangalore"
+                    value={form.location}
+                    onChange={e => update('location', e.target.value)}
+                    onBlur={() => { touch('location'); validate(form); }}
+                    error={touched.location && errors.location}
+                    required
+                    helperText="Be specific enough for people to find you"
+                  />
+                </div>
+                <div className="pt-[22px]">
+                  <Button 
+                    id="donate-detect-btn"
+                    variant="secondary" 
+                    onClick={detectLocation} 
+                    loading={detectingLoc}
+                    icon={<MapPin size={16} />}
+                  >
+                    Detect
+                  </Button>
+                </div>
+              </div>
               <Textarea
                 id="donate-pickup-instructions"
                 label="Pickup Instructions (optional)"
