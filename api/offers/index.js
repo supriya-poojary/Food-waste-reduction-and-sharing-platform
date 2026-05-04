@@ -1,11 +1,11 @@
-import dbConnect from '../../lib/mongodb';
-import Offer from '../../lib/models/Offer';
-import Request from '../../lib/models/Request';
-import { authenticate } from '../../lib/auth';
+import dbConnect from '../../lib/db.js';
+import Offer from '../../lib/models/Offer.js';
+import Request from '../../lib/models/Request.js';
+import { getAuthUser } from '../../lib/auth.js';
 
 export default async function handler(req, res) {
   await dbConnect();
-  const auth = authenticate(req);
+  const auth = getAuthUser(req);
   if (!auth) return res.status(401).json({ message: 'Unauthorized' });
 
   if (req.method === 'POST') {

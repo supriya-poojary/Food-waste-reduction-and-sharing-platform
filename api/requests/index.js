@@ -32,7 +32,7 @@ export default async function handler(req, res) {
         // All open general requests for any donor to see
         const requests = await Request.find({ 
           status: 'pending',
-          foodId: { $exists: false } // Only general requests, not specific ones
+          type: 'general' 
         }).sort({ createdAt: -1 });
         return res.status(200).json(requests);
       }
