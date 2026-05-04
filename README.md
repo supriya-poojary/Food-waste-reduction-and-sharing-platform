@@ -35,34 +35,41 @@ A **production-quality** frontend web app built with **React + Tailwind CSS** fe
 
 ```bash
 # Clone the repo
-git clone https://github.com/Mrvishwass/food-waste-reduction-system.git
-cd food-waste-reduction-system
+git clone https://github.com/supriya-poojary/Food-waste-reduction-and-sharing-platform.git
+cd Food-waste-reduction-and-sharing-platform
 
 # Install dependencies
 npm install
 
-# Start the development server
-npm run dev
+# Set up environment variables
+# Create a .env file in the root directory and add:
+# MONGODB_URI=your_mongodb_connection_string
+# JWT_SECRET=your_jwt_secret
+
+# Start the development server (Frontend + Backend)
+npm run start
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-### Demo Login
-> Click the **blue hint box** on the login page to auto-fill credentials, or use:
-- **Email:** `alex@foodshare.com`
-- **Password:** `password123`
-
 ## 🏗️ Tech Stack
 
-| Technology | Version | Purpose |
-|---|---|---|
-| React | 18 | UI framework |
-| Vite | 8 | Build tool |
-| Tailwind CSS | 3 | Styling |
-| react-router-dom | 6 | Routing |
-| react-hot-toast | latest | Toast notifications |
-| lucide-react | 1.14 | Icons |
-| framer-motion | latest | Animations |
+### Frontend
+| Technology | Purpose |
+|---|---|
+| React | UI framework |
+| Vite | Build tool |
+| Tailwind CSS | Styling |
+| react-router-dom | Routing |
+| framer-motion | Animations |
+
+### Backend
+| Technology | Purpose |
+|---|---|
+| Node.js & Express.js | Server environment & API |
+| MongoDB & Mongoose | Database & Object Data Modeling |
+| Socket.io | Real-time Communication |
+| JWT & Bcrypt | Authentication & Security |
 
 ## 📁 Project Structure
 
@@ -88,10 +95,12 @@ src/
 
 ## 💡 How It Works
 
-The app uses **localStorage** to simulate a backend:
-- 8 pre-seeded food listings from Bangalore
-- Users, food items, and requests all persist across refreshes
-- Fake API delays (500–1200ms) to simulate real network latency
+The platform operates using a modern full-stack architecture:
+1. **Frontend**: Built with React and Tailwind CSS, providing a responsive, interactive user interface with a glassmorphism design.
+2. **Backend API**: A Node.js and Express.js server handles routing, business logic, and secure API endpoints.
+3. **Database**: MongoDB persistently stores user profiles, food donations, and requests using Mongoose schemas.
+4. **Real-time Updates**: Socket.io enables live updates and real-time communication between donors and receivers.
+5. **Authentication**: Secure user authentication is implemented using JSON Web Tokens (JWT) and bcrypt for password hashing.
 
 ## 📸 Screenshots
 
@@ -115,3 +124,9 @@ MIT License — free to use and modify.
 ---
 
 Made with ❤️ to reduce food waste and feed communities.
+
+---
+
+## 👨‍💻 Author
+
+- **GitHub:** [supriya-poojary](https://github.com/supriya-poojary)
