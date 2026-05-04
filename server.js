@@ -93,11 +93,27 @@ app.put('/api/claims/:id',     (req, res) => {
 });
 
 // ── Requests routes ────────────────────────────────────────────────────────
-app.get('/api/requests',       (req, res) => handle(req, res, 'requests/index.js'));
-app.post('/api/requests',      (req, res) => handle(req, res, 'requests/index.js'));
-app.put('/api/requests/:id',     (req, res) => {
+app.all('/api/requests', (req, res) => require('./api/requests/index').default(req, res));
+app.all('/api/requests/:id', (req, res) => {
   req.query.id = req.params.id;
-  handle(req, res, 'requests/[id].js');
+  require('./api/requests/[id]').default(req, res);
+});
+
+// Offers
+app.all('/api/offers', (req, res) => require('./api/offers/index').default(req, res));
+app.all('/api/offers/:id', (req, res) => {
+  req.query.id = req.params.id;
+  require('./api/offers/[id]').default(req, res);
+});
+
+// Orders (mock for now)
+app.get('/api/orders', async (req, res) => {
+  const { authenticate } = require('./lib/auth');
+  const Order = require('./lib/models/Order').default;
+  const auth = authenticate(req);
+  if (!auth) return res.status(401).json({ message: 'Unauthorized' });
+  const orders = await Order.find({ $or: [{ requesterId: auth.id }, { donorId: auth.id }] }).sort({ createdAt: -1 });
+  res.json(orders);
 });
 
 // ── Users routes ───────────────────────────────────────────────────────────

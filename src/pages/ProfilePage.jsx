@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   User, Heart, HandHeart, Edit3, Save, Camera,
-  MapPin, Phone, Mail, Star, Award, Clock, CheckCircle, XCircle, Send, Bell
+  MapPin, Phone, Mail, Star, Award, Clock, CheckCircle, XCircle, Send, Bell, ShoppingBag, Search
 } from 'lucide-react';
 import { api, storage } from '../data/storage';
 import { useAuth } from '../context/AuthContext';
@@ -36,6 +36,9 @@ export default function ProfilePage() {
   const [requests, setRequests] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [approvalModal, setApprovalModal] = useState({ open: false, requestId: null, pickupDetails: '' });
+  const [offerModal, setOfferModal] = useState({ open: false, requestId: null, price: '0', quantity: '', message: '' });
+  const [viewOffersModal, setViewOffersModal] = useState({ open: false, requestId: null, offers: [] });
+  const [orders, setOrders] = useState([]);
   const { loading: saving, execute } = useAsyncAction();
 
   const [form, setForm] = useState({
@@ -51,9 +54,10 @@ export default function ProfilePage() {
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
     ...(user?.role === 'donor' ? [{ id: 'donations', label: 'My Donations', icon: Heart }] : []),
-    ...(user?.role === 'donor' ? [{ id: 'incoming', label: 'Incoming Requests', icon: Bell }] : []),
-    ...(user?.role === 'donor' ? [{ id: 'all_requests', label: 'Community Requests', icon: Search }] : []),
+    ...(user?.role === 'donor' ? [{ id: 'incoming', label: 'Item Requests', icon: Bell }] : []),
+    ...(user?.role === 'donor' ? [{ id: 'all_requests', label: 'Community Board', icon: Search }] : []),
     ...(user?.role === 'requester' ? [{ id: 'requests', label: 'My Requests', icon: HandHeart }] : []),
+    { id: 'orders', label: 'Orders', icon: Clock },
     { id: 'impact', label: 'Impact', icon: Star },
   ];
 
@@ -77,6 +81,9 @@ export default function ProfilePage() {
       } else if (activeTab === 'all_requests') {
         const all = await fetcher('/api/requests?type=all');
         setRequests(all);
+      } else if (activeTab === 'orders') {
+        const myOrders = await fetcher('/api/orders');
+        setOrders(myOrders);
       }
     } catch (err) {
       console.error(err);
@@ -123,6 +130,46 @@ export default function ProfilePage() {
       navigate(`/payment?requestId=${id}`); // Redirect to payment for support/purchase as requested
     } catch (error) {
       toast.error(error.message || 'Failed to update');
+    }
+  };
+
+  const handleMakeOffer = async () => {
+    try {
+      await fetcher('/api/offers', {
+        method: 'POST',
+        body: JSON.stringify(offerModal)
+      });
+      toast.success('Offer sent successfully!');
+      setOfferModal({ open: false, requestId: null, price: '0', quantity: '', message: '' });
+      loadUserData();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleFetchOffers = async (requestId) => {
+    try {
+      const offers = await fetcher(`/api/offers?requestId=${requestId}`);
+      setViewOffersModal({ open: true, requestId, offers });
+    } catch (err) {
+      toast.error('Failed to fetch offers');
+    }
+  };
+
+  const handleAcceptOffer = async (offerId) => {
+    try {
+      const { offer, order } = await fetcher(`/api/offers/${offerId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'accepted' })
+      });
+      toast.success('Offer accepted! Order created.');
+      setViewOffersModal({ ...viewOffersModal, open: false });
+      loadUserData();
+      if (offer.price > 0) {
+        navigate(`/payment?requestId=${offer.requestId}&orderId=${order._id}`);
+      }
+    } catch (err) {
+      toast.error(err.message);
     }
   };
 
@@ -419,6 +466,13 @@ export default function ProfilePage() {
                               {req.status.toUpperCase()}
                             </span>
                           </div>
+                          {req.status === 'pending' && (
+                            <div className="flex gap-2 mb-2">
+                              <Button size="sm" variant="primary" onClick={() => handleFetchOffers(req.id)}>
+                                View Offers
+                              </Button>
+                            </div>
+                          )}
                           {req.status === 'approved' && (
                             <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl mb-2">
                               <p className="text-blue-400 text-xs font-bold mb-1 uppercase tracking-wider">Pickup Instructions:</p>
@@ -538,13 +592,60 @@ export default function ProfilePage() {
                           size="sm" 
                           variant="primary" 
                           onClick={() => {
-                            toast.success(`Contacting ${req.requesterName} to offer help!`);
-                            navigate('/donate');
+                            setOfferModal({ ...offerModal, open: true, requestId: req.id });
                           }}
-                          title="Click to list food for this request"
                         >
-                          Offer Help
+                          Send Offer
                         </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Orders Tab ── */}
+          {activeTab === 'orders' && (
+            <div>
+              <h2 className="font-display font-bold text-xl text-white mb-6">
+                Active Orders & Tracking ({orders.length})
+              </h2>
+              {dataLoading ? (
+                <SkeletonGrid count={3} />
+              ) : orders.length === 0 ? (
+                <div className="text-center py-20 glass-card">
+                  <div className="text-5xl mb-4">📦</div>
+                  <h3 className="font-bold text-xl text-white mb-2">No orders yet</h3>
+                  <p className="text-white/50">Your accepted offers and requests will appear here.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {orders.map((order, i) => (
+                    <div key={order._id} className="glass-card p-5 animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <p className="text-white/40 text-xs mb-1">ORDER ID: {order._id.slice(-8).toUpperCase()}</p>
+                          <h3 className="text-white font-bold text-lg">Order {order.orderStatus.replace('_', ' ')}</h3>
+                        </div>
+                        <span className={`badge ${
+                          order.paymentStatus === 'paid' ? 'badge-green' : 
+                          order.paymentStatus === 'pending' ? 'badge-yellow' : 'badge-ghost'
+                        }`}>
+                          {order.paymentStatus === 'none' ? 'FREE' : order.paymentStatus.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-white/60 mb-4">
+                        <div className="flex items-center gap-1.5"><Clock size={14} /> {new Date(order.createdAt).toLocaleDateString()}</div>
+                        <div className="flex items-center gap-1.5"><ShoppingBag size={14} /> ₹{order.amount}</div>
+                      </div>
+                      <div className="progress-bar mb-2">
+                        <div className="progress-fill" style={{ width: order.orderStatus === 'completed' ? '100%' : '50%' }} />
+                      </div>
+                      <div className="flex justify-between text-[10px] text-white/30 uppercase tracking-widest font-bold">
+                        <span>Accepted</span>
+                        <span>In Progress</span>
+                        <span>Completed</span>
                       </div>
                     </div>
                   ))}
@@ -628,6 +729,78 @@ export default function ProfilePage() {
               Confirm Approval
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Make Offer Modal */}
+      <Modal
+        isOpen={offerModal.open}
+        onClose={() => setOfferModal({ ...offerModal, open: false })}
+        title="Send Food Offer"
+      >
+        <div className="space-y-4">
+          <p className="text-white/60 text-sm">Help the community by responding to this request.</p>
+          <div className="grid grid-cols-2 gap-4">
+            <Input 
+              label="Price (₹)" 
+              type="number" 
+              value={offerModal.price} 
+              onChange={e => setOfferModal({ ...offerModal, price: e.target.value })} 
+              helperText="Set 0 for free donation"
+            />
+            <Input 
+              label="Quantity" 
+              placeholder="e.g. 5kg, 3 packs" 
+              value={offerModal.quantity} 
+              onChange={e => setOfferModal({ ...offerModal, quantity: e.target.value })} 
+            />
+          </div>
+          <Textarea 
+            label="Message (optional)" 
+            placeholder="Tell them what you're offering..." 
+            value={offerModal.message} 
+            onChange={e => setOfferModal({ ...offerModal, message: e.target.value })} 
+          />
+          <div className="flex gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setOfferModal({ ...offerModal, open: false })} fullWidth>Cancel</Button>
+            <Button variant="primary" onClick={handleMakeOffer} fullWidth>Submit Offer</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* View Offers Modal */}
+      <Modal
+        isOpen={viewOffersModal.open}
+        onClose={() => setViewOffersModal({ ...viewOffersModal, open: false })}
+        title="Donor Offers"
+      >
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+          {viewOffersModal.offers.length === 0 ? (
+            <p className="text-center py-6 text-white/40">No offers yet. We'll notify you soon!</p>
+          ) : (
+            viewOffersModal.offers.map(offer => (
+              <div key={offer._id} className="p-4 bg-white/5 rounded-xl border border-white/10">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-xs font-bold text-white">
+                      {offer.donorName[0]}
+                    </div>
+                    <span className="text-white font-bold">{offer.donorName}</span>
+                  </div>
+                  <span className={`font-bold ${offer.price === 0 ? 'text-green-400' : 'text-blue-400'}`}>
+                    {offer.price === 0 ? 'FREE' : `₹${offer.price}`}
+                  </span>
+                </div>
+                <p className="text-white/60 text-sm mb-3">"{offer.message || 'I can help with this!'}"</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-white/40">Qty: {offer.quantity}</span>
+                  <Button size="sm" variant="primary" onClick={() => handleAcceptOffer(offer._id)}>
+                    Accept Offer
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </Modal>
     </div>
