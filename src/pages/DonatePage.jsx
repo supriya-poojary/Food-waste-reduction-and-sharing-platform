@@ -52,6 +52,7 @@ export default function DonatePage() {
     isVeg: true,
     tags: '',
     image: 'https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?w=400&q=80',
+    price: '0',
     lat: null,
     lng: null,
   });
@@ -154,6 +155,7 @@ export default function DonatePage() {
         ...form,
         tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
         servings: parseInt(form.servings) || 4,
+        price: parseFloat(form.price) || 0,
         donorId: user.id,
         donorName: user.name,
         donorAvatar: user.avatar,
@@ -351,6 +353,18 @@ export default function DonatePage() {
                   required
                 />
               </div>
+              
+              <Input
+                id="donate-price"
+                label="Price (set to 0 for free)"
+                type="number"
+                min="0"
+                placeholder="0"
+                value={form.price}
+                onChange={e => update('price', e.target.value)}
+                icon={<span className="text-white/40 text-xs font-bold">₹</span>}
+                helperText="Leave as 0 to donate for free"
+              />
 
               <Input
                 id="donate-tags"
@@ -441,6 +455,7 @@ export default function DonatePage() {
                     { label: 'Quantity', value: `${form.quantity} (~${form.servings} servings)` },
                     { label: 'Location', value: form.location },
                     { label: 'Expiry', value: new Date(form.expiryDate).toLocaleString('en-IN') },
+                    { label: 'Price', value: parseFloat(form.price) === 0 ? 'FREE' : `₹${form.price}` },
                     { label: 'Type', value: form.isVeg ? '🌿 Vegetarian' : '🍗 Non-Vegetarian' },
                   ].map(info => (
                     <div key={info.label} className="flex justify-between py-1.5 border-b border-white/5 last:border-0">

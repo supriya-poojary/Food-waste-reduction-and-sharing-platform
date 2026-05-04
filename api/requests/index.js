@@ -21,10 +21,19 @@ export default async function handler(req, res) {
         const myItems = await FoodItem.find({ donorId: auth.id }).select('_id');
         const itemIds = myItems.map(item => item._id);
         
-        // Find requests for these items
+        // Find requests for these items (specific requests)
         const requests = await Request.find({ foodId: { $in: itemIds } })
           .populate('foodId')
           .sort({ createdAt: -1 });
+        return res.status(200).json(requests);
+      }
+
+      if (type === 'all') {
+        // All open general requests for any donor to see
+        const requests = await Request.find({ 
+          status: 'pending',
+          foodId: { $exists: false } // Only general requests, not specific ones
+        }).sort({ createdAt: -1 });
         return res.status(200).json(requests);
       }
 

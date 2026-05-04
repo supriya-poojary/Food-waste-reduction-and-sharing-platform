@@ -117,8 +117,14 @@ export default function FoodCard({ item, animationDelay = 0 }) {
             <span className="text-xs text-white/60">{item.donorName}</span>
           </div>
           <span className="text-xs text-green-400 font-semibold group-hover:text-green-300 transition-colors flex items-center gap-1">
-            <Star size={10} className="fill-green-400" />
-            Free
+            {(!item.price || item.price === 0) ? (
+              <>
+                <Star size={10} className="fill-green-400" />
+                Free
+              </>
+            ) : (
+              `₹${item.price}`
+            )}
           </span>
         </div>
       </div>

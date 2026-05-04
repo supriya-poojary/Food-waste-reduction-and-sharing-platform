@@ -52,6 +52,7 @@ export default function ProfilePage() {
     { id: 'profile', label: 'Profile', icon: User },
     ...(user?.role === 'donor' ? [{ id: 'donations', label: 'My Donations', icon: Heart }] : []),
     ...(user?.role === 'donor' ? [{ id: 'incoming', label: 'Incoming Requests', icon: Bell }] : []),
+    ...(user?.role === 'donor' ? [{ id: 'all_requests', label: 'Community Requests', icon: Search }] : []),
     ...(user?.role === 'requester' ? [{ id: 'requests', label: 'My Requests', icon: HandHeart }] : []),
     { id: 'impact', label: 'Impact', icon: Star },
   ];
@@ -73,6 +74,9 @@ export default function ProfilePage() {
       } else if (activeTab === 'incoming') {
         const incoming = await fetcher('/api/requests?type=incoming');
         setRequests(incoming);
+      } else if (activeTab === 'all_requests') {
+        const all = await fetcher('/api/requests?type=all');
+        setRequests(all);
       }
     } catch (err) {
       console.error(err);
@@ -487,6 +491,61 @@ export default function ProfilePage() {
                             </Button>
                           </div>
                         )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Community Requests Tab (Donor View) ── */}
+          {activeTab === 'all_requests' && (
+            <div>
+              <h2 className="font-display font-bold text-xl text-white mb-6">
+                Open Community Requests ({requests.length})
+              </h2>
+              {dataLoading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="skeleton h-24 rounded-xl" />
+                  ))}
+                </div>
+              ) : requests.length === 0 ? (
+                <div className="text-center py-20 glass-card">
+                  <div className="text-5xl mb-4">🌍</div>
+                  <h3 className="font-bold text-xl text-white mb-2">No community requests</h3>
+                  <p className="text-white/50">Check back later to see if anyone needs food in your area.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {requests.map((req, i) => (
+                    <div key={req.id} className="glass-card p-5 animate-fade-up border-l-4 border-green-500" style={{ animationDelay: `${i * 60}ms` }}>
+                      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="badge badge-green text-[10px]">OPEN REQUEST</span>
+                            <span className="text-white/40 text-xs">• Posted by {req.requesterName}</span>
+                          </div>
+                          <h3 className="text-white font-bold text-lg mb-1">{req.foodType || 'Food Request'}</h3>
+                          <p className="text-white/60 text-sm mb-3">"{req.description || 'Someone is looking for food support.'}"</p>
+                          <div className="flex flex-wrap gap-4 text-xs text-white/40">
+                            <span className="flex items-center gap-1"><MapPin size={12} /> {req.location}</span>
+                            <span className="flex items-center gap-1"><User size={12} /> For {req.peopleCount || 1} people</span>
+                          </div>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="primary" 
+                          onClick={() => {
+                            toast.success(`Contacting ${req.requesterName}...`);
+                            // In a real app, this would open a chat or offer flow
+                            // For now, let's redirect to donate page to create an item for them
+                            navigate('/donate');
+                          }}
+                        >
+                          Offer Help
+                        </Button>
                       </div>
                     </div>
                   ))}
