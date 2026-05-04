@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAsyncAction, useFormValidation, validators } from '../hooks/useHelpers';
 import { Input, Textarea } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 import { SkeletonProfile, SkeletonGrid } from '../components/ui/Skeleton';
 import FoodCard from '../components/food/FoodCard';
 import toast from 'react-hot-toast';
