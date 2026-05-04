@@ -120,7 +120,7 @@ export default function ProfilePage() {
       toast.success('Food marked as collected! 🎉');
       // Success celebration!
       loadUserData();
-      navigate('/payment'); // Redirect to payment for support as requested
+      navigate(`/payment?requestId=${id}`); // Redirect to payment for support/purchase as requested
     } catch (error) {
       toast.error(error.message || 'Failed to update');
     }
@@ -538,11 +538,10 @@ export default function ProfilePage() {
                           size="sm" 
                           variant="primary" 
                           onClick={() => {
-                            toast.success(`Contacting ${req.requesterName}...`);
-                            // In a real app, this would open a chat or offer flow
-                            // For now, let's redirect to donate page to create an item for them
+                            toast.success(`Contacting ${req.requesterName} to offer help!`);
                             navigate('/donate');
                           }}
+                          title="Click to list food for this request"
                         >
                           Offer Help
                         </Button>

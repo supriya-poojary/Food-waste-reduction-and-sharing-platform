@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { CreditCard, Lock, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { CreditCard, Lock, CheckCircle, AlertCircle, ArrowLeft, ShoppingBag } from 'lucide-react';
 import { api } from '../data/storage';
 import { useAsyncAction, useFormValidation, validators } from '../hooks/useHelpers';
 import { Input } from '../components/ui/Input';
@@ -49,9 +49,35 @@ export default function PaymentPage() {
   const [customAmount, setCustomAmount] = useState('');
   const [cardType, setCardType] = useState(null);
   const [success, setSuccess] = useState(false);
-  const [transactionId, setTransactionId] = useState('');
   const [cardFlipped, setCardFlipped] = useState(false);
+  const [searchParams] = useSearchParams();
+  const requestId = searchParams.get('requestId');
+  const [requestDetails, setRequestDetails] = useState(null);
+  const { loading: dataLoading, execute: fetchData } = useAsyncAction();
   const { loading, execute } = useAsyncAction();
+
+  useEffect(() => {
+    if (requestId) {
+      fetchData(
+        async () => {
+          const token = localStorage.getItem('token');
+          const res = await fetch(`/api/requests/${requestId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          return res.json();
+        },
+        {
+          onSuccess: (data) => {
+            setRequestDetails(data);
+            if (data.foodId?.price > 0) {
+              setAmount(data.foodId.price);
+              setCustomAmount('');
+            }
+          }
+        }
+      );
+    }
+  }, [requestId]);
 
   const [form, setForm] = useState({
     cardHolder: '',
@@ -159,8 +185,14 @@ export default function PaymentPage() {
             <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
             Back
           </button>
-          <h1 className="font-display font-black text-4xl text-white">Support FoodShare</h1>
-          <p className="text-white/50 mt-1">Your donation helps us fight food waste and feed communities</p>
+          <h1 className="font-display font-black text-4xl text-white">
+            {requestDetails?.foodId?.price > 0 ? 'Complete Purchase' : 'Support FoodShare'}
+          </h1>
+          <p className="text-white/50 mt-1">
+            {requestDetails?.foodId?.price > 0 
+              ? `You are paying for "${requestDetails.foodId.title}"` 
+              : 'Your donation helps us fight food waste and feed communities'}
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -341,12 +373,23 @@ export default function PaymentPage() {
 
               {/* Order summary */}
               <div className="p-4 bg-white/5 rounded-xl space-y-2">
+                {requestDetails?.foodId && (
+                  <div className="flex justify-between text-sm mb-2 pb-2 border-b border-white/5">
+                    <span className="text-white flex items-center gap-2">
+                      <ShoppingBag size={14} className="text-green-400" />
+                      {requestDetails.foodId.title}
+                    </span>
+                    <span className="text-white font-bold">₹{requestDetails.foodId.price}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-white/50">Donation Amount</span>
-                  <span className="text-white">₹{finalAmount || 0}</span>
+                  <span className="text-white/50">
+                    {requestDetails?.foodId?.price > 0 ? 'Platform Fee' : 'Donation Amount'}
+                  </span>
+                  <span className="text-white">₹{requestDetails?.foodId?.price > 0 ? '0' : finalAmount || 0}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-white/50">Processing Fee</span>
+                  <span className="text-white/50">Service Fee</span>
                   <span className="text-green-400">FREE</span>
                 </div>
                 <div className="border-t border-white/10 pt-2 flex justify-between font-bold">
